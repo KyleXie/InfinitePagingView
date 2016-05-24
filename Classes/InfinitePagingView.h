@@ -100,4 +100,12 @@ typedef enum {
  */
 - (void)scrollToNextPage;
 
+/*!
+ Scroll to specific page.
+ @method scrollToPage:animated:
+ @param NSInteger page
+ @param BOOL animated
+ */
+- (void)scrollToPage:(NSInteger)page animated:(BOOL)animated;
+
 @end
