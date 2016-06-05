@@ -108,4 +108,18 @@ typedef enum {
  */
 - (void)scrollToPage:(NSInteger)page animated:(BOOL)animated;
 
+/*!
+ Get page view at a specfic index.
+ @method pageWithIndex:
+ @param NSInteger index
+ */
+- (UIView *)pageWithIndex:(NSInteger)index;
+
+/*!
+ Get page view at a specfic location.
+ @method pageAtLocation:
+ @param CGPoint location
+ */
+- (UIView *)pageAtLocation:(CGPoint)location;
+
 @end

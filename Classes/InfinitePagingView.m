@@ -36,6 +36,7 @@
     UIScrollView *_innerScrollView;
     NSMutableArray *_pageViews;
     NSInteger _lastPageIndex;
+    NSInteger _destinationPageIndex;
 }
 
 @synthesize pageSize = _pageSize;
@@ -65,6 +66,8 @@
         _scrollDirection = InfinitePagingViewHorizonScrollDirection;
         [self addSubview:_innerScrollView];
         self.pageSize = frame.size;
+        
+        _destinationPageIndex = -1;
     }
 }
 
@@ -94,6 +97,7 @@
     if (nil == _pageViews) {
         _pageViews = [NSMutableArray array];
     }
+    pageView.tag = _pageViews.count;
     [_pageViews addObject:pageView];
     [self layoutPages];
 }
@@ -164,6 +168,7 @@
                                       _innerScrollView.frame.size.width, _innerScrollView.frame.size.height);
         
     }
+    
     [_innerScrollView scrollRectToVisible:adjustScrollRect animated:animated];
 }
 
@@ -172,20 +177,37 @@
     if (!_pageViews.count || page < 0) {
         return;
     }
+
     NSInteger realPage = page % _pageViews.count;
-    CGRect adjustScrollRect;
-    if (_scrollDirection == InfinitePagingViewHorizonScrollDirection) {
-        if (0 != fmodf(_innerScrollView.contentOffset.x, _pageSize.width)) return ;
-        adjustScrollRect = CGRectMake(_innerScrollView.frame.size.width * realPage,
-                                      _innerScrollView.contentOffset.y,
-                                      _innerScrollView.frame.size.width, _innerScrollView.frame.size.height);
-    } else {
-        if (0 != fmodf(_innerScrollView.contentOffset.y, _pageSize.height)) return ;
-        adjustScrollRect = CGRectMake(_innerScrollView.contentOffset.x,
-                                      _innerScrollView.frame.size.height * realPage,
-                                      _innerScrollView.frame.size.width, _innerScrollView.frame.size.height);
+    UIView *pageView = [self pageWithIndex:realPage];
+    if (!pageView) {
+        return;
     }
-    [_innerScrollView scrollRectToVisible:adjustScrollRect animated:animated];
+    
+    [_innerScrollView scrollRectToVisible:pageView.frame animated:animated];
+    _currentPageIndex = page;
+    if (!animated) {
+        [self _pageChanges];
+    }
+}
+
+- (UIView *)pageWithIndex:(NSInteger)index {
+    for (UIView *p in _pageViews) {
+        if (p.tag == index) {
+            return p;
+        }
+    }
+    return nil;
+}
+
+- (UIView *)pageAtLocation:(CGPoint)location {
+    CGPoint point = [_innerScrollView convertPoint:location fromView:self];
+    for (UIView *page in _pageViews) {
+        if (CGRectContainsPoint(page.frame, point)) {
+            return page;
+        }
+    }
+    return nil;
 }
 
 #pragma mark - UIScrollViewDelegate methods
@@ -218,8 +240,7 @@
     }
 }
 
-- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView
-{
+- (void)_pageChanges {
     NSInteger pageIndex = 0;
     if (_scrollDirection == InfinitePagingViewHorizonScrollDirection) {
         pageIndex = _innerScrollView.contentOffset.x / _innerScrollView.frame.size.width;
@@ -276,16 +297,32 @@
         ++idx;
     }
     [self scrollToDirection:moveDirection animated:NO];
-
+    
     _lastPageIndex = pageIndex;
 
-    if (nil != delegate && [delegate respondsToSelector:@selector(pagingView:didEndDecelerating:atPageIndex:)]) {
-        _currentPageIndex += moveDirection;
-        if (_currentPageIndex < 0) {
-            _currentPageIndex = _pageViews.count - 1;
-        } else if (_currentPageIndex >= _pageViews.count) {
-            _currentPageIndex = 0;
+    CGRect visibleRect = CGRectMake(
+                                    _innerScrollView.contentOffset.x,
+                                    _innerScrollView.contentOffset.y,
+                                    CGRectGetWidth(_innerScrollView.frame),
+                                    CGRectGetHeight(_innerScrollView.frame));
+    
+    for (UIView *pageView in _pageViews) {
+        if (CGRectIntersectsRect(visibleRect, pageView.frame)) {
+            self.currentPageIndex = pageView.tag;
+            break;
         }
+    }
+}
+
+- (void)scrollViewDidEndScrollingAnimation:(UIScrollView *)scrollView
+{
+    [self _pageChanges];
+}
+
+- (void)scrollViewDidEndDecelerating:(UIScrollView *)scrollView
+{
+    [self _pageChanges];
+    if (nil != delegate && [delegate respondsToSelector:@selector(pagingView:didEndDecelerating:atPageIndex:)]) {
         [delegate pagingView:self didEndDecelerating:_innerScrollView atPageIndex:_currentPageIndex];
     }
 }
